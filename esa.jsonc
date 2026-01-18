@@ -1,6 +1,6 @@
 {
     "build": {
-        "command": "npm run build"
+        "command": "npx wrangler d1 execute linmusic-db --file=./migrations/0001_init.sql && npm run build"
     },
     "assets": {
         "directory": "dist"
