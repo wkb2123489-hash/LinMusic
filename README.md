@@ -5,9 +5,16 @@
 LinMusic 是一个基于 Vue 3 构建的现代化 Web 音乐播放器，支持多平台音乐搜索和播放。项目采用 PWA 技术，可添加到主屏幕作为独立应用使用，支持后台播放和锁屏控制。
 
 
-![网站预览](linmusic_homepage/linmusic_首页/screen.png)
-linmusic_homepage/linmusic_设置页/screen.png
-linmusic_homepage/linmusic_歌词预览页/screen.png
+| 首页 | 设置页 | 歌词预览页 |
+|------|--------|-----------|
+| ![首页](linmusic_homepage/linmusic_首页/screen.png) | ![设置页](linmusic_homepage/linmusic_设置页/screen.png) | ![歌词预览页](linmusic_homepage/linmusic_歌词预览页/screen.png) |
+
+| 搜索页 | 排行页 | 我喜欢的音乐 |
+|------|--------|-----------|
+| ![alt text](linmusic_homepage/linmusic_搜索页/screen.png) | ![alt text](linmusic_homepage/linmusic_排行页/screen.png) | ![alt text](linmusic_homepage/linmusic_我喜欢的音乐/screen.png) |
+
+
+
 
 #阿里云ESA Pages #阿里云云工开物
 
@@ -176,5 +183,5 @@ iOS PWA 对后台播放有限制，需要：
 
 ## 声明
 “本项目由阿里云ESA提供加速、计算和保护”
-![Aliyun ESA Pages](pics/aliyunesapages.png)
+![Aliyun ESA Pages](linmusic_homepage/aliyunesapages.png)
 
