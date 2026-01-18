@@ -2,7 +2,27 @@
 import { getCoverUrl } from './music'
 import { normalizeImageUrl } from '@/utils/format'
 
+// 是否使用本地存储模式（无后端）
+const LOCAL_MODE = import.meta.env.VITE_LOCAL_MODE === 'true'
 const BASE_URL = import.meta.env.DEV ? 'http://localhost:8788/api' : '/api'
+
+// 本地存储键名
+const LS_PLAYLISTS = 'linmusic.playlists'
+const LS_SONGS_PREFIX = (id: number) => `linmusic.playlistSongs.${id}`
+
+// 简单的本地存储读写工具
+function readLS<T>(key: string, defaultValue: T): T {
+  try {
+    const raw = localStorage.getItem(key)
+    if (!raw) return defaultValue
+    return JSON.parse(raw) as T
+  } catch {
+    return defaultValue
+  }
+}
+function writeLS(key: string, value: any): void {
+  localStorage.setItem(key, JSON.stringify(value))
+}
 
 interface ApiResponse<T> {
   success: boolean
@@ -54,6 +74,10 @@ const request = async <T>(path: string, options: RequestInit = {}): Promise<T> =
 }
 
 export async function getPlaylists(): Promise<Playlist[]> {
+  if (LOCAL_MODE) {
+    const playlists = readLS<Playlist[]>(LS_PLAYLISTS, [])
+    return playlists
+  }
   try {
     const data = await request<any[]>('/playlists')
     return data.map(toPlaylist)
@@ -64,6 +88,13 @@ export async function getPlaylists(): Promise<Playlist[]> {
 }
 
 export async function getPlaylist(id: number): Promise<{ playlist: Playlist; songs: Song[] } | null> {
+  if (LOCAL_MODE) {
+    const playlists = readLS<Playlist[]>(LS_PLAYLISTS, [])
+    const playlist = playlists.find((p) => p.id === id)
+    if (!playlist) return null
+    const songs = readLS<Song[]>(LS_SONGS_PREFIX(id), [])
+    return { playlist, songs }
+  }
   try {
     const data = await request<{ playlist: any; songs: Song[] }>(`/playlists/${id}`)
     return {
@@ -77,6 +108,22 @@ export async function getPlaylist(id: number): Promise<{ playlist: Playlist; son
 }
 
 export async function createPlaylist(name: string, description?: string): Promise<Playlist | null> {
+  if (LOCAL_MODE) {
+    const playlists = readLS<Playlist[]>(LS_PLAYLISTS, [])
+    const nextId = playlists.length ? Math.max(...playlists.map(p => p.id)) + 1 : 1
+    const now = new Date().toISOString()
+    const playlist: Playlist = {
+      id: nextId,
+      name,
+      description,
+      songCount: 0,
+      createdAt: now,
+      updatedAt: now
+    }
+    playlists.push(playlist)
+    writeLS(LS_PLAYLISTS, playlists)
+    return playlist
+  }
   try {
     const data = await request<any>('/playlists', {
       method: 'POST',
@@ -93,6 +140,16 @@ export async function updatePlaylist(
   id: number,
   updates: { name?: string; description?: string; coverUrl?: string }
 ): Promise<boolean> {
+  if (LOCAL_MODE) {
+    const playlists = readLS<Playlist[]>(LS_PLAYLISTS, [])
+    const idx = playlists.findIndex((p) => p.id === id)
+    if (idx < 0) return false
+    const now = new Date().toISOString()
+    const updated: Playlist = { ...playlists[idx], ...updates, updatedAt: now }
+    playlists[idx] = updated
+    writeLS(LS_PLAYLISTS, playlists)
+    return true
+  }
   try {
     await request(`/playlists/${id}`, {
       method: 'PUT',
@@ -106,6 +163,13 @@ export async function updatePlaylist(
 }
 
 export async function deletePlaylist(id: number): Promise<boolean> {
+  if (LOCAL_MODE) {
+    const playlists = readLS<Playlist[]>(LS_PLAYLISTS, [])
+    const next = playlists.filter((p) => p.id !== id)
+    writeLS(LS_PLAYLISTS, next)
+    try { localStorage.removeItem(LS_SONGS_PREFIX(id)) } catch {}
+    return true
+  }
   try {
     await request(`/playlists/${id}`, { method: 'DELETE' })
     return true
@@ -119,6 +183,44 @@ export async function addSongToPlaylist(
   playlistId: number,
   song: Song
 ): Promise<{ success: boolean; duplicated?: boolean; error?: string }> {
+  if (LOCAL_MODE) {
+    try {
+      const coverUrl = normalizeImageUrl(song.coverUrl)
+        || normalizeImageUrl(getCoverUrl(String(song.id), song.platform))
+      const songs = readLS<Song[]>(LS_SONGS_PREFIX(playlistId), [])
+      const duplicated = songs.some((s) => s.id === String(song.id) && s.platform === song.platform)
+      if (duplicated) {
+        return { success: true, duplicated: true }
+      }
+      const nextEntryId = songs.length ? Math.max(...songs.map(s => s.playlistSongId || 0)) + 1 : 1
+      const songToAdd: Song = {
+        id: String(song.id),
+        platform: song.platform,
+        name: song.name || '未知歌曲',
+        artist: song.artist || '未知歌手',
+        album: song.album,
+        duration: song.duration,
+        coverUrl,
+        playlistSongId: nextEntryId
+      }
+      songs.push(songToAdd)
+      writeLS(LS_SONGS_PREFIX(playlistId), songs)
+
+      // 更新歌单的歌曲计数
+      const playlists = readLS<Playlist[]>(LS_PLAYLISTS, [])
+      const idx = playlists.findIndex((p) => p.id === playlistId)
+      if (idx >= 0) {
+        const now = new Date().toISOString()
+        playlists[idx] = { ...playlists[idx], songCount: songs.length, updatedAt: now }
+        writeLS(LS_PLAYLISTS, playlists)
+      }
+      return { success: true, duplicated: false }
+    } catch (error) {
+      console.error('Add song to playlist failed (local):', error)
+      const message = error instanceof Error ? error.message : '添加失败'
+      return { success: false, error: message }
+    }
+  }
   try {
     const coverUrl = normalizeImageUrl(song.coverUrl)
       || normalizeImageUrl(getCoverUrl(String(song.id), song.platform))
@@ -150,6 +252,36 @@ export async function removeSongFromPlaylist(
   platform: string,
   playlistSongId?: number
 ): Promise<boolean> {
+  if (LOCAL_MODE) {
+    try {
+      let entryId = playlistSongId
+      if (!entryId) {
+        const songs = readLS<Song[]>(LS_SONGS_PREFIX(playlistId), [])
+        const match = songs.find((item) => item.id === songId && item.platform === platform)
+        if (match && typeof match.playlistSongId === 'number') {
+          entryId = match.playlistSongId
+        }
+      }
+      if (!entryId) return false
+      const songs = readLS<Song[]>(LS_SONGS_PREFIX(playlistId), [])
+      const nextSongs = songs.filter((s) => s.playlistSongId !== entryId)
+      if (nextSongs.length === songs.length) return false
+      writeLS(LS_SONGS_PREFIX(playlistId), nextSongs)
+
+      // 更新歌单的歌曲计数
+      const playlists = readLS<Playlist[]>(LS_PLAYLISTS, [])
+      const idx = playlists.findIndex((p) => p.id === playlistId)
+      if (idx >= 0) {
+        const now = new Date().toISOString()
+        playlists[idx] = { ...playlists[idx], songCount: nextSongs.length, updatedAt: now }
+        writeLS(LS_PLAYLISTS, playlists)
+      }
+      return true
+    } catch (error) {
+      console.error('Remove song from playlist failed (local):', error)
+      return false
+    }
+  }
   try {
     let entryId = playlistSongId
 

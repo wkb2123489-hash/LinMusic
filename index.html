@@ -13,6 +13,16 @@
   <title>LinMusic</title>
   <!-- Material Symbols from jsDelivr CDN -->
   <link href="https://cdn.jsdelivr.net/npm/material-symbols@0.14.0/outlined.css" rel="stylesheet" />
+  <script>
+    (() => {
+      const targetHost = 'linmusic.pages.dev'
+      const isLocal = ['localhost', '127.0.0.1', '0.0.0.0'].includes(location.hostname)
+      if (!isLocal && location.hostname !== targetHost) {
+        const target = `https://${targetHost}${location.pathname}${location.search}${location.hash}`
+        location.replace(target)
+      }
+    })()
+  </script>
 </head>
 <body>
   <div id="app"></div>
