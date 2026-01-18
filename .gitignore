@@ -5,9 +5,6 @@ node_modules/
 .vite/
 *.tsbuildinfo
 
-# Cloudflare Wrangler local state
-.wrangler/
-
 # env
 .env
 .env.*

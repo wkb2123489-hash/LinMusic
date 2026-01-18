@@ -5,8 +5,8 @@ pages_build_output_dir = "./dist"
 # D1 数据库绑定
 [[d1_databases]]
 binding = "DB"
-database_name = "linmusic"
-database_id = "bf7fb6d7-3081-452f-bca7-3ad164eb0528" 
+database_name = "linmusic-db"
+database_id = "abc82ec5-e367-411e-976e-a17cc1854bc8"
 # 开发环境配置
 [dev]
 port = 8788
